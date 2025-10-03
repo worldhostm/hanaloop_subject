@@ -1,36 +1,154 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Carbon Emissions Dashboard
 
-## Getting Started
+경영진과 관리자를 위한 온실가스 배출 추적 및 분석 대시보드입니다.
 
-First, run the development server:
+## 시작하기
+
+### 요구사항
+
+- Node.js 18 이상
+- 패키지 매니저: npm, yarn, pnpm, bun 중 하나
+
+### 설치 및 실행
 
 ```bash
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# 브라우저에서 http://localhost:3000 접속
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 테스트 및 빌드
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# ESLint 검사
+npm run lint
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# TypeScript 타입 체크
+npx tsc --noEmit
 
-## Learn More
+# 프로덕션 빌드
+npm run build
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 설계 시 고려한 사항들
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+〉데이터 세분화
+월별로 관리하고 있습니다. 월 단위가 추세 확인과 전월 대비, 전년 동월 대비 비교에 가장 적합하다고 판단했어요.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+〉권한 및 역할
+현재는 단일 사용자를 가정하고 전체 데이터를 노출합니다. 다중 역할 기반 권한 관리는 추후 단계에서 추가할 예정입니다.
 
-## Deploy on Vercel
+〉배출 소스 범위
+우선 일반 연료(가솔린, 디젤, LPG)부터 시작했고, 구조적으로는 다른 배출원으로 확장 가능하게 설계했습니다.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+〉실시간성
+실시간 데이터보다는 네트워크 지연을 시뮬레이션하는 API로 먼저 UX를 검증하는 방향으로 진행했습니다.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 아키텍처 개요
+
+### 데이터 흐름
+
+```
+API (lib/api.ts) → Zustand Store → React Components
+```
+
+### 주요 컴포넌트 구조
+
+- App (page.tsx): 초기 데이터 페칭 및 주요 상태 관리
+  - Navigation: 회사 선택 사이드바
+  - DashboardOverview: 전체 배출량 요약
+  - CompanyDetail: 선택된 회사의 상세 정보
+  - LoadingSpinner / ErrorMessage: 공용 UI 컴포넌트
+
+### 상태 관리 전략
+
+- 전역 상태(Zustand): 회사 목록, 선택된 회사, 로딩 및 에러 상태
+- 로컬 상태(컴포넌트): UI 인터랙션 관련 상태
+- API: 네트워크 지연 및 실패율을 옵션으로 시뮬레이션
+
+## 렌더링 최적화
+
+Navigation
+회사 목록이나 선택이 변경될 때만 리렌더링됩니다. 이벤트 핸들러는 useCallback으로 메모이제이션했어요.
+
+DashboardOverview
+전체 companies 배열이 변경될 때 갱신됩니다. Recharts의 기본 최적화 메커니즘을 활용하고 있습니다.
+
+CompanyDetail
+선택된 회사나 해당 회사의 포스트를 페칭할 때 리렌더링됩니다. 포스트 로딩 상태를 별도로 관리해서 깜빡임을 최소화했습니다.
+
+App
+Zustand의 슬라이스 단위 구독으로 불필요한 리렌더링을 줄였습니다.
+
+### 현재 적용된 최적화
+
+- Zustand 선택적 구독
+- 이벤트 핸들러 useCallback 적용
+- Recharts 기본 렌더링 전략 활용
+- 로딩 상태 분리 관리
+
+## 추후 개선 예정 사항
+
+React.memo 적용
+대규모 데이터셋에서 효과가 있을 것으로 예상됩니다. 차트 컴포넌트부터 순차적으로 적용할 계획입니다.
+
+에러 바운더리 개선
+현재는 최소한의 구현만 되어 있습니다. 사용자 친화적인 에러 복구 UI를 다음 단계에서 추가하겠습니다.
+
+리스트 가상화
+회사 수가 100개를 넘어가면 고려가 필요합니다. react-window 라이브러리를 후보로 보고 있습니다.
+
+반응형 디테일
+태블릿 브레이크포인트 관련해서 개선 여지가 있습니다.
+
+테마 시스템
+현재는 정적 색상만 사용 중입니다. 다크 모드는 전체 테마 시스템을 정리한 후 추가할 예정입니다.
+
+데이터 영속성
+인메모리 방식이라 새로고침 시 데이터가 초기화됩니다. localStorage나 백엔드 연동을 다음에 추가하겠습니다.
+
+## UI 설계 근거
+
+사이드바 네비게이션
+경영진용 대시보드에서는 항상 보이는 네비게이션이 편합니다. 모바일에서는 오버레이 방식으로 접고 펼 수 있게 했어요.
+
+카드 레이아웃
+정보가 섞이지 않도록 블록 단위로 분리했습니다. 패딩, 그리드, 그림자 스타일의 일관성을 유지하려고 신경 썼어요.
+
+색상
+메인은 녹색(지속가능성 이미지), 보조는 파란색(신뢰감, 차트). 에러나 경고는 의미색을 사용합니다.
+
+상호작용 및 애니메이션
+사이드바 전환은 300ms ease-in-out, GPU 친화적인 transform 위주로 처리했습니다.
+로딩 표시는 스피너를 사용하고, 필요하면 스켈레톤 UI도 추가 가능합니다.
+차트는 Recharts의 호버 및 반응형 기본 기능을 활용합니다.
+
+타이포그래피 및 간격
+헤딩은 2xl~3xl, 섹션 타이틀은 lg~xl, 본문은 base를 기본으로 합니다. 6px 단위 그리드와 패딩을 사용하고 있어요.
+
+## 기술 스택
+
+- Next.js 14+ (App Router)
+- TypeScript
+- Tailwind CSS
+- Zustand (상태 관리)
+- Recharts (차트 라이브러리)
+- Lucide React (아이콘)
+
+## 주요 기능
+
+- 여러 회사의 배출량 요약 보기
+- 회사별 상세 분석 및 트렌드 차트
+- 주간/월간/연간 데이터 전환 기능
+- 배출원별 분석 (가솔린, 디젤, LPG 등)
+- 반응형 레이아웃 (모바일, 태블릿, 데스크톱)
+- 네트워크 지연 시뮬레이션 API
+- 기본적인 에러 처리 및 재시도 메커니즘
+
+---
+
+문의사항이나 개선 제안이 있으시면 언제든 말씀해 주세요.
